@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# optional argument handling
+if [[ "$1" == "version" ]]
+then
+    echo "0.0.1"
+    exit 0
+fi
+
+# optional argument handling
+if [[ "$1" == "config" ]]
+then
+    echo "$KUBECONFIG"
+    exit 0
+fi
+
+# echo "Going to decode all secrets"
+
+if [[ "$1" == "" ]]
+then
+    echo "Missing name of secret"
+    echo 0
+fi
+
+kubectl get secret $1 -o json | jq '.data | map_values(@base64d)'
