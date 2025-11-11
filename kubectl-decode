@@ -1,6 +1,54 @@
 #!/bin/bash
 
+# Check for required dependencies
+if ! command -v kubectl &> /dev/null; then
+    echo "Error: kubectl is not installed or not in PATH"
+    echo "Please install kubectl: https://kubernetes.io/docs/tasks/tools/"
+    exit 1
+fi
+
+if ! command -v jq &> /dev/null; then
+    echo "Error: jq is not installed or not in PATH"
+    echo "Please install jq: https://stedolan.github.io/jq/download/"
+    exit 1
+fi
+
+# Help function
+show_help() {
+    cat << EOF
+kubectl-decode - Decode base64-encoded values in Kubernetes secrets
+
+Usage:
+  kubectl decode <secret-name> [flags]
+
+Examples:
+  # Decode a secret in the default namespace
+  kubectl decode my-secret
+
+  # Decode a secret in a specific namespace
+  kubectl decode my-secret -n kube-system
+
+  # Decode a secret with a specific output format
+  kubectl decode my-secret -o yaml
+
+Flags:
+  -h, --help              Show this help message
+  -n, --namespace string  Kubernetes namespace (default: current context namespace)
+  --context string        Kubernetes context to use
+  -o, --output string     Output format: json, yaml, or table (default: json)
+
+Other Commands:
+  kubectl decode version  Show plugin version
+  kubectl decode config   Show current KUBECONFIG path
+
+EOF
+}
+
 # optional argument handling
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+    show_help
+    exit 0
+fi
 if [[ "$1" == "version" ]]
 then
     echo "0.0.1"
@@ -14,12 +62,108 @@ then
     exit 0
 fi
 
-# echo "Going to decode all secrets"
+# Initialize variables
+NAMESPACE=""
+CONTEXT=""
+OUTPUT_FORMAT="json"
+SECRET_NAME=""
 
-if [[ "$1" == "" ]]
-then
-    echo "Missing name of secret"
-    echo 0
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -n|--namespace)
+            NAMESPACE="$2"
+            shift 2
+            ;;
+        --context)
+            CONTEXT="$2"
+            shift 2
+            ;;
+        -o|--output)
+            OUTPUT_FORMAT="$2"
+            shift 2
+            ;;
+        *)
+            if [[ -z "$SECRET_NAME" ]]; then
+                SECRET_NAME="$1"
+            fi
+            shift
+            ;;
+    esac
+done
+
+# Check if secret name was provided
+if [[ -z "$SECRET_NAME" ]]; then
+    echo "Error: Missing name of secret"
+    echo "Run 'kubectl decode --help' for usage information"
+    echo ""
+    echo "Available secrets:"
+
+    # Build kubectl command to list secrets
+    LIST_CMD="kubectl get secrets"
+
+    # Add namespace if specified
+    if [[ -n "$NAMESPACE" ]]; then
+        LIST_CMD="$LIST_CMD -n $NAMESPACE"
+    fi
+
+    # Add context if specified
+    if [[ -n "$CONTEXT" ]]; then
+        LIST_CMD="$LIST_CMD --context $CONTEXT"
+    fi
+
+    # Execute and show available secrets
+    $LIST_CMD 2>/dev/null || echo "  (Unable to list secrets - check your kubectl configuration)"
+
+    exit 1
 fi
 
-kubectl get secret $1 -o json | jq '.data | map_values(@base64d)'
+# Build kubectl command
+KUBECTL_CMD="kubectl get secret $SECRET_NAME -o json"
+
+# Add namespace if specified
+if [[ -n "$NAMESPACE" ]]; then
+    KUBECTL_CMD="$KUBECTL_CMD -n $NAMESPACE"
+fi
+
+# Add context if specified
+if [[ -n "$CONTEXT" ]]; then
+    KUBECTL_CMD="$KUBECTL_CMD --context $CONTEXT"
+fi
+
+# Execute kubectl and capture result
+KUBECTL_OUTPUT=$($KUBECTL_CMD 2>&1)
+KUBECTL_EXIT_CODE=$?
+
+# Check if kubectl command succeeded
+if [[ $KUBECTL_EXIT_CODE -ne 0 ]]; then
+    echo "Error: Failed to retrieve secret '$SECRET_NAME'"
+    echo "$KUBECTL_OUTPUT"
+    exit 1
+fi
+
+# Decode based on output format
+case "$OUTPUT_FORMAT" in
+    json)
+        echo "$KUBECTL_OUTPUT" | jq '.data | map_values(@base64d)'
+        ;;
+    yaml)
+        # Check if yq is available for better YAML output
+        if command -v yq &> /dev/null; then
+            echo "$KUBECTL_OUTPUT" | jq '.data | map_values(@base64d)' | yq -P
+        else
+            # Fallback: use jq to convert to YAML-like format
+            echo "# Note: Install 'yq' for proper YAML formatting (https://github.com/mikefarah/yq)"
+            echo "$KUBECTL_OUTPUT" | jq -r '.data | to_entries | map("\(.key): |\n  \(.value | @base64d | gsub("\n"; "\n  "))") | join("\n")'
+        fi
+        ;;
+    table)
+        echo "KEY                                VALUE"
+        echo "---                                -----"
+        echo "$KUBECTL_OUTPUT" | jq -r '.data | to_entries[] | "\(.key)\t\(.value | @base64d | gsub("\n"; " "))"' | column -t -s $'\t'
+        ;;
+    *)
+        echo "Error: Invalid output format '$OUTPUT_FORMAT'. Valid formats: json, yaml, table"
+        exit 1
+        ;;
+esac
