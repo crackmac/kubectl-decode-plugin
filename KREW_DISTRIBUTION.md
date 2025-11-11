@@ -5,7 +5,7 @@ This guide explains how to distribute kubectl-decode via Krew, the kubectl plugi
 ## Prerequisites
 
 1. Create a GitHub repository for this plugin
-2. Create a GitHub release with a version tag (e.g., `v0.0.1`)
+2. Create a GitHub release with a version tag (e.g., `v0.1.0`)
 3. Install Krew: https://krew.sigs.k8s.io/docs/user-guide/setup/install/
 
 ## Steps to Publish
@@ -14,21 +14,21 @@ This guide explains how to distribute kubectl-decode via Krew, the kubectl plugi
 
 ```bash
 # Tag your release
-git tag v0.0.1
-git push origin v0.0.1
+git tag v0.1.0
+git push origin v0.1.0
 
 # Create a release on GitHub with the tag
-# Download URL will be: https://github.com/YOUR_USERNAME/kubectl-decode-plugin/archive/v0.0.1.tar.gz
+# Download URL will be: https://github.com/crackmac/kubectl-decode-plugin/archive/v0.1.0.tar.gz
 ```
 
 ### 2. Calculate SHA256
 
 ```bash
 # Download the release tarball
-wget https://github.com/YOUR_USERNAME/kubectl-decode-plugin/archive/v0.0.1.tar.gz
+wget https://github.com/crackmac/kubectl-decode-plugin/archive/v0.1.0.tar.gz
 
 # Calculate SHA256
-sha256sum v0.0.1.tar.gz
+sha256sum v0.1.0.tar.gz
 
 # Update the sha256 field in .krew.yaml with this value
 ```
@@ -36,14 +36,14 @@ sha256sum v0.0.1.tar.gz
 ### 3. Update .krew.yaml
 
 Replace the following placeholders in `.krew.yaml`:
-- `YOUR_USERNAME` - Your GitHub username
+- `crackmac` - Your GitHub username
 - `REPLACE_WITH_ACTUAL_SHA256` - The SHA256 hash from step 2
 
 ### 4. Test Locally
 
 ```bash
 # Install the plugin locally to test
-kubectl krew install --manifest=.krew.yaml --archive=v0.0.1.tar.gz
+kubectl krew install --manifest=.krew.yaml --archive=v0.1.0.tar.gz
 
 # Test the plugin
 kubectl decode --help
@@ -85,7 +85,7 @@ For new releases:
 If you don't want to publish to the official krew-index, users can install directly:
 
 ```bash
-kubectl krew install --manifest-url=https://raw.githubusercontent.com/YOUR_USERNAME/kubectl-decode-plugin/master/.krew.yaml
+kubectl krew install --manifest-url=https://raw.githubusercontent.com/crackmac/kubectl-decode-plugin/master/.krew.yaml
 ```
 
 ## References
