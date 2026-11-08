@@ -85,7 +85,14 @@ The plugin properly passes namespace and context flags through to both:
 
 ## Testing
 
-Manual testing workflow:
+Automated tests use [bats-core](https://github.com/bats-core/bats-core) and need no cluster: `test/bin/kubectl` is a stub that records its arguments and replays canned output.
+
+```bash
+bats test/
+shellcheck kubectl-decode test/bin/kubectl
+```
+
+Manual testing workflow against a real cluster:
 1. Test dependency checks by temporarily renaming `jq` or `kubectl`
 2. Test basic secret decoding: `kubectl decode <secret-name>`
 3. Test all output formats: `-o json`, `-o yaml`, `-o table`
@@ -96,5 +103,3 @@ Manual testing workflow:
    - Non-existent secret (should show kubectl error)
    - Invalid output format (should show format error)
 7. Test special commands: `version`, `config`, `--help`
-
-Since this is a bash script, there are no automated tests currently. Testing requires access to a Kubernetes cluster with secrets.
