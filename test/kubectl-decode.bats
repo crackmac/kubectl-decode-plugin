@@ -46,6 +46,23 @@ decode() {
     env PATH="$PLUGIN_PATH" "$PLUGIN" "$@"
 }
 
+# decode_with_timeout ARGS...: like decode, but kill the plugin and return
+# 124 if it is still running after 5 seconds (portable; no GNU timeout).
+decode_with_timeout() {
+    decode "$@" &
+    local pid=$! i
+    for ((i = 0; i < 50; i++)); do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            wait "$pid"
+            return
+        fi
+        sleep 0.1
+    done
+    kill "$pid"
+    echo "timed out"
+    return 124
+}
+
 kubectl_args() {
     cat "$FAKE_KUBECTL_ARGS"
 }
@@ -139,4 +156,13 @@ kubectl_args() {
     [ "$status" -eq 1 ]
     [[ "$output" == *"Failed to retrieve secret 'nope'"* ]]
     [[ "$output" == *"NotFound"* ]]
+}
+
+@test "a flag missing its value is an error, not a hang" {
+    local flag
+    for flag in -n --namespace --context -o --output; do
+        run decode_with_timeout my-secret "$flag"
+        [ "$status" -eq 1 ]
+        [[ "$output" == *"flag needs an argument: $flag"* ]]
+    done
 }

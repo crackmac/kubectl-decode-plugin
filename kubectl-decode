@@ -68,18 +68,32 @@ CONTEXT=""
 OUTPUT_FORMAT="json"
 SECRET_NAME=""
 
+# Exit with an error if flag $1 was given without a value ($2 is the number
+# of arguments left, including the flag itself). Without this check,
+# `shift 2` fails on the last argument and the parse loop never ends.
+require_value() {
+    if [[ $2 -lt 2 ]]; then
+        echo "Error: flag needs an argument: $1" >&2
+        echo "Run 'kubectl decode --help' for usage information" >&2
+        exit 1
+    fi
+}
+
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -n|--namespace)
+            require_value "$1" $#
             NAMESPACE="$2"
             shift 2
             ;;
         --context)
+            require_value "$1" $#
             CONTEXT="$2"
             shift 2
             ;;
         -o|--output)
+            require_value "$1" $#
             OUTPUT_FORMAT="$2"
             shift 2
             ;;
