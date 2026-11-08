@@ -140,3 +140,20 @@ kubectl_args() {
     [[ "$output" == *"Failed to retrieve secret 'nope'"* ]]
     [[ "$output" == *"NotFound"* ]]
 }
+
+@test "kubectl warnings on stderr don't break decoding" {
+    bats_require_minimum_version 1.5.0
+    fake_secret user admin
+    echo 'Warning: the gcp auth plugin is deprecated in v1.22+' > "$FAKE_KUBECTL_STDERR"
+    run --separate-stderr decode my-secret
+    [ "$status" -eq 0 ]
+    [ "$(jq -r .user <<< "$output")" = "admin" ]
+    [[ "$stderr" == *"gcp auth plugin is deprecated"* ]]
+}
+
+@test "context and namespace values with spaces reach kubectl intact" {
+    fake_secret user admin
+    run decode my-secret -n team-a --context "my cluster"
+    [ "$status" -eq 0 ]
+    [ "$(kubectl_args)" = "$(printf '%s\n' get secret my-secret -o json -n team-a --context 'my cluster')" ]
+}
