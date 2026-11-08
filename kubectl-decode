@@ -99,46 +99,49 @@ if [[ -z "$SECRET_NAME" ]]; then
     echo ""
     echo "Available secrets:"
 
-    # Build kubectl command to list secrets
-    LIST_CMD="kubectl get secrets"
+    # Build kubectl command to list secrets (an array, so values containing
+    # spaces or glob characters are passed through unchanged)
+    LIST_CMD=(kubectl get secrets)
 
     # Add namespace if specified
     if [[ -n "$NAMESPACE" ]]; then
-        LIST_CMD="$LIST_CMD -n $NAMESPACE"
+        LIST_CMD+=(-n "$NAMESPACE")
     fi
 
     # Add context if specified
     if [[ -n "$CONTEXT" ]]; then
-        LIST_CMD="$LIST_CMD --context $CONTEXT"
+        LIST_CMD+=(--context "$CONTEXT")
     fi
 
     # Execute and show available secrets
-    $LIST_CMD 2>/dev/null || echo "  (Unable to list secrets - check your kubectl configuration)"
+    "${LIST_CMD[@]}" 2>/dev/null || echo "  (Unable to list secrets - check your kubectl configuration)"
 
     exit 1
 fi
 
-# Build kubectl command
-KUBECTL_CMD="kubectl get secret $SECRET_NAME -o json"
+# Build kubectl command (an array, so values containing spaces or glob
+# characters are passed through unchanged)
+KUBECTL_CMD=(kubectl get secret "$SECRET_NAME" -o json)
 
 # Add namespace if specified
 if [[ -n "$NAMESPACE" ]]; then
-    KUBECTL_CMD="$KUBECTL_CMD -n $NAMESPACE"
+    KUBECTL_CMD+=(-n "$NAMESPACE")
 fi
 
 # Add context if specified
 if [[ -n "$CONTEXT" ]]; then
-    KUBECTL_CMD="$KUBECTL_CMD --context $CONTEXT"
+    KUBECTL_CMD+=(--context "$CONTEXT")
 fi
 
-# Execute kubectl and capture result
-KUBECTL_OUTPUT=$($KUBECTL_CMD 2>&1)
+# Execute kubectl and capture only its stdout. stderr (errors, but also
+# warnings such as auth-plugin deprecation notices on successful calls) goes
+# straight to the terminal; mixing it into the output would corrupt the JSON.
+KUBECTL_OUTPUT=$("${KUBECTL_CMD[@]}")
 KUBECTL_EXIT_CODE=$?
 
-# Check if kubectl command succeeded
+# Check if kubectl command succeeded (its error message was already shown)
 if [[ $KUBECTL_EXIT_CODE -ne 0 ]]; then
     echo "Error: Failed to retrieve secret '$SECRET_NAME'"
-    echo "$KUBECTL_OUTPUT"
     exit 1
 fi
 

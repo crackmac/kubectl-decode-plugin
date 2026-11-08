@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Fake kubectl used by the bats suite.
+# Records its arguments (one per line) in $FAKE_KUBECTL_ARGS, prints the
+# contents of $FAKE_KUBECTL_STDOUT / $FAKE_KUBECTL_STDERR (file paths) and
+# exits with $FAKE_KUBECTL_EXIT (default 0).
+if [[ -n "${FAKE_KUBECTL_ARGS:-}" ]]; then
+    printf '%s\n' "$@" > "$FAKE_KUBECTL_ARGS"
+fi
+if [[ -n "${FAKE_KUBECTL_STDOUT:-}" ]]; then
+    cat "$FAKE_KUBECTL_STDOUT"
+fi
+if [[ -n "${FAKE_KUBECTL_STDERR:-}" ]]; then
+    cat "$FAKE_KUBECTL_STDERR" >&2
+fi
+exit "${FAKE_KUBECTL_EXIT:-0}"
