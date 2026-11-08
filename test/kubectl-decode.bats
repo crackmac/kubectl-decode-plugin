@@ -140,3 +140,22 @@ kubectl_args() {
     [[ "$output" == *"Failed to retrieve secret 'nope'"* ]]
     [[ "$output" == *"NotFound"* ]]
 }
+
+@test "a secret with no data decodes to nothing in every format" {
+    # e.g. `kubectl create secret generic empty`: the API omits .data entirely
+    echo '{"apiVersion": "v1", "kind": "Secret", "metadata": {"name": "empty"}, "type": "Opaque"}' \
+        > "$FAKE_KUBECTL_STDOUT"
+
+    run decode empty -o json
+    [ "$status" -eq 0 ]
+    [ "$output" = "{}" ]
+
+    run decode empty -o yaml
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"error"* ]]
+
+    run decode empty -o table
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"error"* ]]
+    [[ "$output" == *"KEY"*"VALUE"* ]]
+}

@@ -142,25 +142,26 @@ if [[ $KUBECTL_EXIT_CODE -ne 0 ]]; then
     exit 1
 fi
 
-# Decode based on output format
+# Decode based on output format. A secret with no keys has no .data field
+# at all, so treat a missing .data as empty rather than letting jq fail.
 case "$OUTPUT_FORMAT" in
     json)
-        echo "$KUBECTL_OUTPUT" | jq '.data | map_values(@base64d)'
+        echo "$KUBECTL_OUTPUT" | jq '(.data // {}) | map_values(@base64d)'
         ;;
     yaml)
         # Check if yq is available for better YAML output
         if command -v yq &> /dev/null; then
-            echo "$KUBECTL_OUTPUT" | jq '.data | map_values(@base64d)' | yq -P
+            echo "$KUBECTL_OUTPUT" | jq '(.data // {}) | map_values(@base64d)' | yq -P
         else
             # Fallback: use jq to convert to YAML-like format
             echo "# Note: Install 'yq' for proper YAML formatting (https://github.com/mikefarah/yq)"
-            echo "$KUBECTL_OUTPUT" | jq -r '.data | to_entries | map("\(.key): |\n  \(.value | @base64d | gsub("\n"; "\n  "))") | join("\n")'
+            echo "$KUBECTL_OUTPUT" | jq -r '(.data // {}) | to_entries | map("\(.key): |\n  \(.value | @base64d | gsub("\n"; "\n  "))") | join("\n")'
         fi
         ;;
     table)
         echo "KEY                                VALUE"
         echo "---                                -----"
-        echo "$KUBECTL_OUTPUT" | jq -r '.data | to_entries[] | "\(.key)\t\(.value | @base64d | gsub("\n"; " "))"' | column -t -s $'\t'
+        echo "$KUBECTL_OUTPUT" | jq -r '(.data // {}) | to_entries[] | "\(.key)\t\(.value | @base64d | gsub("\n"; " "))"' | column -t -s $'\t'
         ;;
     *)
         echo "Error: Invalid output format '$OUTPUT_FORMAT'. Valid formats: json, yaml, table"
